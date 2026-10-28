@@ -1,6 +1,6 @@
 # Tomato Sorting Machine using Raspberry Pi
 
-Final Year Project (Project 8) – BEng Robotics & Artificial Intelligence, University of Hertfordshire
+Final Year Project  – BEng Robotics & Artificial Intelligence
 Student: Aarthi | Supervisor: Wong Kim Siong
 
 ## About the project
