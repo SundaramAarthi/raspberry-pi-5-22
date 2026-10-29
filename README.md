@@ -1,24 +1,28 @@
 # Tomato Sorting Machine using Raspberry Pi
 
-Final Year Project  – BEng Robotics & Artificial Intelligence
+Final Year Project (Project 8) – BEng Robotics & Artificial Intelligence, University of Hertfordshire
 Student: Aarthi | Supervisor: Wong Kim Siong
 
 ## About the project
 
-This project is an AI tomato sorting machine. A Dobot Magician places tomatoes on a conveyor belt. A Raspberry Pi AI Camera above the belt takes a picture, and a machine learning model on the Raspberry Pi 5 classifies each tomato as **Ripe**, **Unripe** or **Rotten**. At the end of the belt, a servo-driven flap pushes the tomato into the correct bin.
+This project is an AI tomato sorting machine. A Dobot Magician places tomatoes on a conveyor belt. A Raspberry Pi AI Camera above the belt takes a picture, and a machine learning model on the Raspberry Pi 5 classifies each tomato as **Ripe**, **Unripe** or **Rotten**. After the camera, a servo-driven flap guides the tomato into the correct bin.
 
 ## How it works
 
-1. The Dobot Magician picks up a tomato and places it on the conveyor belt.
-2. The conveyor carries the tomato under the AI Camera.
-3. The Raspberry Pi 5 runs the trained model and decides the class.
-4. The SG90 servo turns the flap to send the tomato to the right bin:
+**Dobot → camera → flap → bins**
 
-| Class  | Bin           | Servo angle |
-|--------|---------------|-------------|
-| Rotten | Straight on   | 110°        |
-| Unripe | Left          | 140°        |
-| Ripe   | Right         | 80°         |
+1. The Dobot Magician places a tomato on the conveyor belt.
+2. The belt carries the tomato under the AI Camera.
+3. The Raspberry Pi 5 runs the trained model and decides the class (or "Empty" when no tomato is there).
+4. The tomato moves on to the flap, and the SG90 servo turns the flap to guide it into the right bin.
+
+| Class  | Flap position              | Servo angle |
+|--------|----------------------------|-------------|
+| Rotten | Along the edge (straight)  | 110°        |
+| Ripe   | Across the belt (far side) | 40°         |
+| Unripe | Not final yet (see below)  | 80°         |
+
+With the servo mounted on the side rail, the flap can reliably give two directions (straight and far side). A Y-chute after the belt end, with the flap in the middle, is planned for the third bin.
 
 ## Hardware
 
@@ -30,64 +34,74 @@ This project is an AI tomato sorting machine. A Dobot Magician places tomatoes o
 
 ## Wiring
 
-| Component       | Connection on Raspberry Pi 5            |
-|-----------------|-----------------------------------------|
-| SG90 signal     | Pin 12 (GPIO 18)                         |
-| SG90 power (5V) | Pin 2                                    |
-| SG90 ground     | Pin 6                                    |
-| AI Camera       | CSI camera port (ribbon cable)           |
-| Dobot Magician  | USB                                      |
+| Component       | Connection on Raspberry Pi 5               |
+|-----------------|--------------------------------------------|
+| SG90 signal     | Pin 12 (GPIO 18)                           |
+| SG90 power (5V) | Pin 2                                      |
+| SG90 ground     | Pin 6                                      |
+| AI Camera       | CSI camera port (ribbon cable)             |
+| Dobot Magician  | USB                                        |
 | Conveyor belt   | Dobot Stepper2 port (controlled via Dobot) |
 
-The wiring diagram is in the `images/` folder.
+## Software setup on the Raspberry Pi 5
+
+- AI Camera software: `sudo apt install imx500-all`
+- Edge Impulse Linux runner and Python SDK (`edge_impulse_linux`)
+- `picamera2` and OpenCV for camera capture
 
 ## AI model
 
 - Platform: Edge Impulse
-- Model: Transfer learning with MobileNetV2 (96x96)
-- Classes: Ripe, Unripe, Rotten
-- Data: Public Kaggle "Tomatoes Dataset" (CC0) plus my own photos taken on the real conveyor belt
+- Model: Transfer learning with MobileNetV2 (96x96), float32
+- Classes: Ripe, Unripe, Rotten, Empty
+- Data: Public Kaggle "Tomatoes Dataset" (CC0) plus my own photos taken on the real conveyor belt with the AI Camera
 
 ### Training progress
 
-| Training run | Changes made                                   | Validation accuracy | Unripe correct |
-|--------------|------------------------------------------------|---------------------|----------------|
-| Run 1        | Kaggle dataset only                            | 70.4%               | 34.8%          |
-| Run 2        | Added data augmentation and auto-weight classes | 69.8%               | 38.4%          |
-| Run 3        | Added 13 of my own belt photos                 | 70.4%               | 32.8%          |
-| Run 4        | Added 21 more Unripe belt photos               | 69.7%               | 39.8%          |
+| Run   | Changes made                                    | Validation accuracy | Notes                     |
+|-------|-------------------------------------------------|---------------------|---------------------------|
+| Run 1 | Kaggle dataset only                             | 70.4%               | Unripe 34.8% correct      |
+| Run 2 | Added data augmentation and auto-weight classes | 69.8%               | Unripe 38.4% correct      |
+| Run 3 | Added 13 of my own belt photos                  | 70.4%               | Unripe 32.8% correct      |
+| Run 4 | Added 21 Unripe belt photos                     | 69.7%               | Unripe 39.8% correct      |
+| Run 5 | Added 20 Ripe belt photos and a new Empty class (20 photos) | 59.4% | Empty 100% correct |
 
-I found that some images in the public dataset have confusing labels (for example, orange tomatoes labelled as Ripe), which lowers accuracy. To fix this, I am adding more of my own photos taken on the actual conveyor belt with the same background and lighting.
+The validation accuracy is measured mostly on the Kaggle images, and I found some of their labels are confusing (for example, orange tomatoes labelled as Ripe). So I also test the model live on the real belt.
 
-## Folder structure
+### Live test on the belt (28 Oct 2026)
 
-```
-code/      Python scripts for the servo, flap gate and live classification
-cad/       3D design files (flap, servo bracket, camera stand)
-images/    Setup photos, wiring diagram and sample training photos
-results/   Edge Impulse training results and confusion matrices
-```
+| On the belt  | Model result   |
+|--------------|----------------|
+| Nothing      | Empty (100%)   |
+| Red tomato   | Ripe (100%)    |
+| Green tomato | Unripe (100%)  |
 
-## Code files
+Lessons learned:
+- Before adding the Empty class, the model said "Unripe" even for an empty belt, because most of my belt photos were Unripe.
+- The live script must resize the camera image the same way as Edge Impulse Studio, otherwise results are wrong.
+- The background matters: when the camera saw a keyboard that was not in the training photos, the result was wrong.
 
-- `servo_test.py` – first test of the servo on the Raspberry Pi 5
-- `flap_gate.py` – moves the flap to the three bin positions
+## Code files (`code/` folder)
+
+- `flap_gate.py` – controls the flap servo (calibrate and test modes)
 - `flap_angles.json` – saved servo angles for each bin
+- `capture_photos.sh` – takes 20 training photos with the AI Camera
 - `live_test.py` – runs the AI model with the AI Camera and prints the result
+- `test_photo.py` – runs the model on saved photos
+- `sorter.py` – full sorting program: camera + model + flap together
 
 ## Progress
 
 **Done**
-- Flap gate designed, 3D printed, and calibrated on the Raspberry Pi 5
+- Flap gate designed, 3D printed and mounted after the camera
 - AI Camera connected and camera stand made
-- Model trained in Edge Impulse and running on the Raspberry Pi 5
-- Python script written for live classification
-
-**In progress**
-- Fixing camera detection after a system update
-- Taking more belt photos of Ripe and Rotten tomatoes to retrain the model
+- Model trained with my own belt photos, including an Empty class
+- Model runs live on the Raspberry Pi 5 and classifies Empty, Ripe and Unripe correctly
+- First full sorting program (`sorter.py`) detects the tomato and triggers the flap
 
 **Next steps**
-- Combine camera, model and flap gate into one program
-- Test the Dobot gripper with tomatoes
-- Make the three bins and test the full sorting system
+- Test the flap timing with `sorter.py` while the belt is moving
+- Build a Y-chute for the third bin
+- Take Rotten belt photos (dry damaged tomatoes, belt protected with cling film)
+- Test with new tomatoes the model has not seen
+- Add the Dobot pick-and-place step
