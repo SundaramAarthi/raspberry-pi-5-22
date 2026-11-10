@@ -1,7 +1,3 @@
-"""Live test: classifies what the AI Camera sees once per second and prints it.
-
-Run: python3 live_test.py   (Ctrl+C to stop)
-"""
 import time
 import cv2
 from picamera2 import Picamera2
@@ -20,7 +16,6 @@ with ImageImpulseRunner(MODEL) as runner:
         while True:
             frame = cam.capture_array()
             img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # same image resize/crop as Edge Impulse Studio used in training
             features, cropped = runner.get_features_from_image_auto_studio_settings(img)
             res = runner.classify(features)
             scores = res["result"]["classification"]

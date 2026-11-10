@@ -1,20 +1,12 @@
-"""Tomato sorter: camera + Edge Impulse model + flap gate in one program.
-
-The AI Camera watches the belt. When the model sees the same tomato class
-twice in a row with at least 80% confidence, the program waits for the
-tomato to travel from the camera to the flap, then moves the flap.
-It then waits until the belt is empty before sorting the next tomato.
-
-Run: python3 sorter.py   (Ctrl+C to stop)
-"""
 import time, cv2
 from picamera2 import Picamera2
 from edge_impulse_linux.image import ImageImpulseRunner
-from flap_gate import Flap
+from gate2 import TwoFlaps as Flap
+from pydobotplus import Dobot
 
 MODEL = "/home/aarthi/tomato/model.eim"
 CONF = 0.8       # how sure the model must be
-TRAVEL_S = 1.5   # seconds from camera to flap (adjust later)
+TRAVEL_S = 7.5   # seconds from camera to flap (adjust later)
 
 with ImageImpulseRunner(MODEL) as runner, Flap() as flap:
     runner.init()
@@ -22,6 +14,8 @@ with ImageImpulseRunner(MODEL) as runner, Flap() as flap:
     cam.configure(cam.create_preview_configuration(main={"size": (640, 480), "format": "RGB888"}))
     cam.start()
     time.sleep(2)
+    belt = Dobot(port="/dev/ttyACM0")
+    belt.conveyor_belt(0.5, direction=-1, interface=1)
     print("Sorter ready. Press Ctrl+C to stop.")
     last = None
     try:
@@ -50,3 +44,5 @@ with ImageImpulseRunner(MODEL) as runner, Flap() as flap:
         print("Stopped.")
     finally:
         cam.stop()
+        belt.conveyor_belt(0, direction=-1, interface=1)
+        belt.close()
