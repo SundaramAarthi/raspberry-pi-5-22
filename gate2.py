@@ -3,7 +3,7 @@ from flap_gate import Flap
 
 S1 = {"pin": 18, "straight": 135, "across": 100}  # servo 1, back side -> Ripe
 S2 = {"pin": 13, "straight": 75, "across": 120}   # servo 2, front side -> Unripe
-HOLD_S = 4.0
+HOLD_S = 7.0
 
 class TwoFlaps:
     def __init__(self):
